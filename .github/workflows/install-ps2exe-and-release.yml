@@ -49,11 +49,16 @@ jobs:
           }
         shell: pwsh  # 使用 PowerShell 7
 
-      - name: Upload build artifact
+      - name: Upload Get-BatteryInfo artifact
         uses: actions/upload-artifact@v4
         with:
           name: Get-BatteryInfo-${{ matrix.arch }}
           path: ${{ env.outputGetBatteryInfo }}
+          retention-days: 1
+
+      - name: Upload Clear-SpecifiedHistory artifact
+        uses: actions/upload-artifact@v4
+        with:
           name: Clear-SpecifiedHistory-${{ matrix.arch }}
           path: ${{ env.outputClearSpecifiedHistory }}
           retention-days: 1
@@ -146,5 +151,7 @@ jobs:
           files: |
             ./artifacts/Get-BatteryInfo-x64/Get-BatteryInfo-x64.exe
             ./artifacts/Get-BatteryInfo-arm64/Get-BatteryInfo-arm64.exe
+            ./artifacts/Clear-SpecifiedHistory-x64/Clear-SpecifiedHistory-x64.exe
+            ./artifacts/Clear-SpecifiedHistory-arm64/Clear-SpecifiedHistory-arm64.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
