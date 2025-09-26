@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [switch]$Monitor
+    [switch]$wait
 )
 
 # 获取电池容量信息
