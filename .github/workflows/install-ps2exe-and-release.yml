@@ -1,0 +1,150 @@
+name: Install PS2EXE and Release
+
+on:
+  push:
+    tags:
+      - v*.*.*  # 匹配 vX.Y.Z 格式的标签
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            arch: x64
+            runs-on: windows-latest
+          - os: windows-11
+            arch: arm64
+            runs-on: windows-11-arm
+    runs-on: ${{ matrix.runs-on }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 拉取所有历史记录
+
+      - name: Install PS2EXE module
+        run: |
+          Install-Module -Name ps2exe -Force
+        shell: pwsh  # 使用 PowerShell 7
+
+      - name: Package ps1 to exe
+        run: |
+          if (Test-Path -Path "Get-BatteryInfo.ps1") {
+              $outputGetBatteryInfo = "Get-BatteryInfo-${{ matrix.arch }}.exe"
+              $outputClearSpecifiedHistory = "Clear-SpecifiedHistory-${{ matrix.arch }}.exe"
+              Invoke-ps2exe .\Get-BatteryInfo.ps1 .\$outputGetBatteryInfo
+              Invoke-ps2exe .\Clear-SpecifiedHistory.ps1 .\$outputClearSpecifiedHistory
+              echo "outputGetBatteryInfo=$outputGetBatteryInfo" >> $env:GITHUB_ENV
+              echo "outputClearSpecifiedHistory=$outputClearSpecifiedHistory" >> $env:GITHUB_ENV
+              Write-Host "Successfully created $outputGetBatteryInfo"
+              Write-Host "Successfully created $outputClearSpecifiedHistory"
+          } else {
+              Write-Error "File not found"
+              exit 1
+          }
+        shell: pwsh  # 使用 PowerShell 7
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Get-BatteryInfo-${{ matrix.arch }}
+          path: ${{ env.outputGetBatteryInfo }}
+          name: Clear-SpecifiedHistory-${{ matrix.arch }}
+          path: ${{ env.outputClearSpecifiedHistory }}
+          retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 拉取所有历史记录
+
+      - name: Get current tag
+        id: current_tag
+        run: |
+          currentTag=${GITHUB_REF#refs/tags/}
+          echo "current_tag=$currentTag" >> $GITHUB_OUTPUT
+          echo "Current tag: $currentTag"
+
+      - name: Find previous version tag
+        id: previous_tag
+        run: |
+          currentTag="${{ steps.current_tag.outputs.current_tag }}"
+          previousTag=""
+
+          # 显示所有可用标签用于调试
+          echo "所有可用标签:"
+          git tag --list "v*.*.*"
+
+          # 获取所有符合格式的标签并排序，找到最新的前一个版本
+          previousTag=$(git tag --list "v*.*.*" | grep -v "^$currentTag$" | sort -V | tail -n1)
+
+          if [ -n "$previousTag" ]; then
+              echo "找到前一个标签: $previousTag"
+          else
+              echo "未找到前一个标签"
+          fi
+
+          echo "previous_tag=$previousTag" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          currentTag="${{ steps.current_tag.outputs.current_tag }}"
+          previousTag="${{ steps.previous_tag.outputs.previous_tag }}"
+
+          echo "# 发布详情" > release_notes.md
+          echo "" >> release_notes.md
+          
+          # 检查是否存在对应版本的 ReleaseNote 文件
+          releaseNoteFile="ReleaseNote/${currentTag}.txt"
+          if [ -f "$releaseNoteFile" ]; then
+              echo "找到版本说明文件: $releaseNoteFile"
+              cat "$releaseNoteFile" >> release_notes.md
+              echo "" >> release_notes.md
+          else
+              echo "未找到版本说明文件: $releaseNoteFile"
+          fi
+
+          echo "## 详细变更记录（所有提交历史）" >> release_notes.md
+          echo "" >> release_notes.md
+
+          if [ -z "$previousTag" ]; then
+              echo "从初始提交到 $currentTag 生成变更记录"
+              git log "$currentTag" --pretty=format:"- %s (%h) - %cd" --date=format:"%Y-%m-%d %H:%M" >> release_notes.md
+          else
+              echo "从 $previousTag 到 $currentTag 生成变更记录"
+              git log "$previousTag..$currentTag" --pretty=format:"- %s (%h) - %cd" --date=format:"%Y-%m-%d %H:%M" >> release_notes.md
+          fi
+
+          if [ ! -s release_notes.md ] || [ $(wc -l < release_notes.md) -le 3 ]; then
+              echo "- 无明显变更" >> release_notes.md
+          fi
+
+          echo "生成的发布说明:"
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.current_tag.outputs.current_tag }}
+          name: Release ${{ steps.current_tag.outputs.current_tag }}
+          body_path: release_notes.md
+          files: |
+            ./artifacts/Get-BatteryInfo-x64/Get-BatteryInfo-x64.exe
+            ./artifacts/Get-BatteryInfo-arm64/Get-BatteryInfo-arm64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
