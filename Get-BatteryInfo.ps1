@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [switch]$Monitor
+    [switch]$Monitor,
     [switch]$wait
 )
 
