@@ -28,10 +28,8 @@ $bluetoothDevices = Get-PnpDevice -Class "Bluetooth" | Select-Object DeviceID, N
 foreach ($bluetoothDevice in $bluetoothDevices) {
     $powerStatus = Get-PnpDeviceProperty -InstanceId $bluetoothDevice.DeviceID -KeyName $BatteryKey
     if ($powerStatus.Data) {
-        Write-Host "###########"
         Write-Host "设备：$($bluetoothDevice.Name)"
         Write-Host "ID：$($bluetoothDevice.DeviceID)"
         Write-Host "电量：$($powerStatus.Data)"
-        Write-Host "###########"
     }
 }
