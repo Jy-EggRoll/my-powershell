@@ -22,6 +22,8 @@
 
 如果您的电脑上安装有 PowerShell7，那么使用 ps1 脚本是最好的选择。用法如下：
 
+进入脚本所在目录，在该目录打开 PowerShell7，运行：
+
 ```powershell
 .\Get-BatteryInfo.ps1  # 获取电池信息：设计容量、实际容量、健康度、电量
 .\Get-BatteryInfo.ps1 -Monitor  # 实时监测功率
@@ -34,6 +36,8 @@
 ### PowerShell5 用户
 
 如果您不想修改 PowerShell5 的脚本执行策略，请下载相应架构的 exe 可执行文件，在命令行中运行。用法如下：
+
+进入 exe 所在目录，在该目录打开命令行，运行：
 
 ```powershell
 .\Get-BatteryInfo-x64.exe  # 获取电池信息：设计容量、实际容量、健康度、电量
