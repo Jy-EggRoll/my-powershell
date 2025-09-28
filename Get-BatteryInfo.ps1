@@ -1,6 +1,14 @@
 param(
-    [switch]$Monitor
+    [switch]$Monitor,
+    [switch]$Bluetooth,
+    [switch]$BluetoothMonitor,
+    [switch]$RefreshBluetoothCache
 )
+
+# 蓝牙相关常量和配置
+$BatteryKey = "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2"
+$IsConnectedKey = "{83DA6326-97A6-4088-9453-A1923F573B29} 15"
+$CacheFilePath = "BluetoothDeviceIDCache.txt"
 
 # 获取电池容量信息
 function Get-BatteryCapacityInfo {
@@ -144,6 +152,91 @@ function Write-ColoredOutput {
     Write-Host $message -ForegroundColor $color
 }
 
+function Request-UserConsent {
+    Write-Host "未检测到缓存文件。" -ForegroundColor Yellow
+    Write-Host "为了提高查询速度，脚本可以缓存有电量信息的蓝牙设备。" -ForegroundColor Yellow
+    Write-Host "这将显著减少后续查询的时间，避免每次都扫描所有蓝牙设备。" -ForegroundColor Yellow
+    $response = Read-Host "是否创建缓存文件？(y/n)"
+    return $response -match "^[Yy]"
+}
+
+function Show-BluetoothCacheNotice {
+    Write-Host "提示：正在使用蓝牙设备缓存加速查询。" -ForegroundColor Green
+    Write-Host "当蓝牙设备状态有更新时（比如重新配对了某个设备），请单独使用 -RefreshBluetoothCache 参数刷新缓存。" -ForegroundColor Yellow
+}
+
+function Write-BluetoothCache {
+    param($Device)
+    
+    try {
+        # 追加写入缓存文件
+        "$($Device.DeviceID),$($Device.Name)" | Out-File -FilePath $CacheFilePath -Append -Encoding UTF8
+    }
+    catch {
+        Write-Warning "无法写入缓存文件: $_"
+    }
+}
+
+if ($Bluetooth) {
+    # 检查缓存文件，不存在则询问用户是否创建
+    $isApproved = $false
+    if (-not (Test-Path $CacheFilePath)) {
+        $bluetoothDevices = Get-PnpDevice -Class "Bluetooth" | Select-Object DeviceID, Name
+        $isApproved = Request-UserConsent
+        foreach ($bluetoothDevice in $bluetoothDevices) {
+            $powerStatus = Get-PnpDeviceProperty -InstanceId $bluetoothDevice.DeviceID -KeyName $BatteryKey
+            $isConnected = Get-PnpDeviceProperty -InstanceId $bluetoothDevice.DeviceID -KeyName $IsConnectedKey
+            if ($powerStatus.Data -and $isConnected.Data) {
+                Write-Host "设备：$($bluetoothDevice.Name)" -ForegroundColor Blue
+                Write-Host "电量：$($powerStatus.Data)%"
+                if ($isApproved) {
+                    Write-BluetoothCache -Device $bluetoothDevice
+                }
+            }
+        }
+    }
+    else {
+        Show-BluetoothCacheNotice
+
+        # 读取缓存文件，直接查询缓存中的设备
+        $bluetoothDevices = @{}
+        Get-Content -Path $CacheFilePath | ForEach-Object {
+            $parts = $_ -split ","
+            if ($parts.Count -eq 2) {
+                $bluetoothDevices[$parts[0]] = $parts[1]
+            }
+        }
+        foreach ($deviceId in $bluetoothDevices.Keys) {
+            $powerStatus = Get-PnpDeviceProperty -InstanceId $deviceId -KeyName $BatteryKey
+            $isConnected = Get-PnpDeviceProperty -InstanceId $deviceId -KeyName $IsConnectedKey
+            if ($powerStatus.Data -and $isConnected.Data) {
+                Write-Host "设备：$($bluetoothDevices[$deviceId])" -ForegroundColor Blue
+                Write-Host "电量：$($powerStatus.Data)%"
+            }
+        }
+    }
+    exit 0
+}
+
+if ($RefreshBluetoothCache) {
+    # 删除旧的缓存文件
+    if (Test-Path $CacheFilePath) {
+        Remove-Item $CacheFilePath -ErrorAction SilentlyContinue
+    }
+    $bluetoothDevices = Get-PnpDevice -Class "Bluetooth" | Select-Object DeviceID, Name
+    foreach ($bluetoothDevice in $bluetoothDevices) {
+        $powerStatus = Get-PnpDeviceProperty -InstanceId $bluetoothDevice.DeviceID -KeyName $BatteryKey
+        $isConnected = Get-PnpDeviceProperty -InstanceId $bluetoothDevice.DeviceID -KeyName $IsConnectedKey
+        if ($powerStatus.Data -and $isConnected.Data) {
+            Write-Host "设备：$($bluetoothDevice.Name)" -ForegroundColor Blue
+            Write-Host "电量：$($powerStatus.Data)%"
+            Write-Host "已刷新该设备缓存" -ForegroundColor Green
+            Write-BluetoothCache -Device $bluetoothDevice
+        }
+    }
+    exit 0
+}
+
 # 主逻辑
 $capacityInfo = Get-BatteryCapacityInfo
 
@@ -162,6 +255,7 @@ if ($capacityInfo.DesignCapacity -and $capacityInfo.FullChargeCapacity) {
     $healthPercentage = [math]::Round(($capacityInfo.FullChargeCapacity / $capacityInfo.DesignCapacity) * 100, 2)
     Write-Host "电池的健康度: $healthPercentage%"
 }
+Write-Host "电脑当前电量: $(Get-CurrentBatteryCharge)%"
 
 # 如果是监控模式
 if ($Monitor) {
