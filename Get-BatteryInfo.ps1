@@ -8,7 +8,7 @@ param(
 # 蓝牙相关常量和配置
 $BatteryKey = "{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2"
 $IsConnectedKey = "{83DA6326-97A6-4088-9453-A1923F573B29} 15"
-$CacheFilePath = "BluetoothDeviceIDCache.txt"
+$CacheFilePath = "~\BluetoothDeviceIDCache.txt"
 
 # 获取电池容量信息
 function Get-BatteryCapacityInfo {
@@ -154,8 +154,11 @@ function Write-ColoredOutput {
 
 function Request-UserConsent {
     Write-Host "未检测到缓存文件。" -ForegroundColor Yellow
-    Write-Host "为了提高查询速度，脚本可以缓存有电量信息的蓝牙设备。" -ForegroundColor Yellow
-    Write-Host "这将显著减少后续查询的时间，避免每次都扫描所有蓝牙设备。" -ForegroundColor Yellow
+    Write-Host "为了提高查询速度，建议缓存有电量信息的蓝牙设备。" -ForegroundColor Yellow
+    Write-Host "这将显著减少之后每次查询的时间，避免扫描所有蓝牙设备。" -ForegroundColor Yellow
+    Write-Host "缓存文件将被创建在 $CacheFilePath。" -ForegroundColor Yellow
+    Write-Host "如果您同意创建缓存文件，请输入 y 并按回车；否则输入 n。" -ForegroundColor Yellow
+    Write-Host "如果您不使用缓存，电量检测仍然可以正常运行，只是速度会较慢。" -ForegroundColor Yellow
     $response = Read-Host "是否创建缓存文件？(y/n)"
     return $response -match "^[Yy]"
 }
@@ -187,6 +190,7 @@ if ($Bluetooth) {
             $powerStatus = Get-PnpDeviceProperty -InstanceId $bluetoothDevice.DeviceID -KeyName $BatteryKey
             $isConnected = Get-PnpDeviceProperty -InstanceId $bluetoothDevice.DeviceID -KeyName $IsConnectedKey
             if ($powerStatus.Data -and $isConnected.Data) {
+                Write-Host "---"
                 Write-Host "设备：$($bluetoothDevice.Name)" -ForegroundColor Blue
                 Write-Host "电量：$($powerStatus.Data)%"
                 if ($isApproved) {
@@ -210,6 +214,7 @@ if ($Bluetooth) {
             $powerStatus = Get-PnpDeviceProperty -InstanceId $deviceId -KeyName $BatteryKey
             $isConnected = Get-PnpDeviceProperty -InstanceId $deviceId -KeyName $IsConnectedKey
             if ($powerStatus.Data -and $isConnected.Data) {
+                Write-Host "---"
                 Write-Host "设备：$($bluetoothDevices[$deviceId])" -ForegroundColor Blue
                 Write-Host "电量：$($powerStatus.Data)%"
             }
@@ -228,6 +233,7 @@ if ($RefreshBluetoothCache) {
         $powerStatus = Get-PnpDeviceProperty -InstanceId $bluetoothDevice.DeviceID -KeyName $BatteryKey
         $isConnected = Get-PnpDeviceProperty -InstanceId $bluetoothDevice.DeviceID -KeyName $IsConnectedKey
         if ($powerStatus.Data -and $isConnected.Data) {
+            Write-Host "---"
             Write-Host "设备：$($bluetoothDevice.Name)" -ForegroundColor Blue
             Write-Host "电量：$($powerStatus.Data)%"
             Write-Host "已刷新该设备缓存" -ForegroundColor Green
