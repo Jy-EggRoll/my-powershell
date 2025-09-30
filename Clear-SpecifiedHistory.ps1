@@ -80,7 +80,7 @@ function Get-UserConfirmation {
     
     Write-Host "`n请选择操作：" -ForegroundColor Yellow
     Write-Host "  a    - 全部删除 ($matchedCount 条记录)"
-    Write-Host "  sn   - 保留第 n 条记录，逗号分隔（如 s1,s3,s5 保留第1、3、5条）"
+    Write-Host "  sn   - 保留第 n 条记录，逗号分隔（如 s1,3,5 保留第1、3、5条）"
     Write-Host "  q    - 取消操作"
     
     do {
