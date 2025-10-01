@@ -153,6 +153,7 @@ function Write-ColoredOutput {
 }
 
 function Request-UserConsent {
+    Write-Host "请注意：蓝牙设备电量往往是不准确的，这大大依赖于设备本身的支持情况，仅可以作为参考。" -ForegroundColor Red
     Write-Host "未检测到缓存文件。" -ForegroundColor Yellow
     Write-Host "为了提高查询速度，建议缓存有电量信息的蓝牙设备。" -ForegroundColor Yellow
     Write-Host "这将显著减少之后每次查询的时间，避免扫描所有蓝牙设备。" -ForegroundColor Yellow
@@ -164,6 +165,7 @@ function Request-UserConsent {
 }
 
 function Show-BluetoothCacheNotice {
+    Write-Host "请注意：蓝牙设备电量往往是不准确的，这大大依赖于设备本身的支持情况，仅可以作为参考。" -ForegroundColor Red
     Write-Host "提示：正在使用蓝牙设备缓存加速查询。" -ForegroundColor Green
     Write-Host "当蓝牙设备状态有更新时（比如重新配对了某个设备），请单独使用 -RefreshBluetoothCache 参数刷新缓存。" -ForegroundColor Yellow
 }
