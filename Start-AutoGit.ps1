@@ -45,7 +45,7 @@ function Update-GitRepositories {
 
         switch ($Action) {
             'fetch' {
-                git -C "$repo" fetch --recurse-submodules
+                git -C "$repo" fetch --recurse-submodule
                 if ($LASTEXITCODE -eq 0) {
                     Write-Host "$repo 执行 fetch 成功" -ForegroundColor Green
                 }
@@ -54,7 +54,8 @@ function Update-GitRepositories {
                 }
             }
             'pull' {
-                git -C "$repo" pull --recurse-submodules
+                git -C "$repo" pull --depth 3
+                git -C "$repo" submodule update --remote --depth 3
                 if ($LASTEXITCODE -eq 0) {
                     Write-Host "$repo 执行 pull 成功" -ForegroundColor Green
                 }
@@ -69,7 +70,8 @@ function Update-GitRepositories {
             }
             'toshallow' {
                 # 转为浅克隆（尽量只保留最近的 3 个提交），并包含子模块
-                git -C "$repo" fetch --depth 3 --recurse-submodules
+                git -C "$repo" fetch --depth 3
+                git -C "$repo" submodule update --remote --depth 3
                 if ($LASTEXITCODE -eq 0) {
                     Write-Host "$repo 执行 fetch --depth 3 成功" -ForegroundColor Green
                 }
@@ -78,7 +80,7 @@ function Update-GitRepositories {
                 }
             }
             'gc' {
-                git -C "$repo" gc
+                git -C "$repo" gc --auto  # 只在有必要时执行 gc
                 if ($LASTEXITCODE -eq 0) {
                     Write-Host "$repo 执行 gc 成功" -ForegroundColor Green
                 }
