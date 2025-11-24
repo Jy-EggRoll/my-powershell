@@ -3,7 +3,9 @@ param(
     [string]$StartDir = (Get-Location).Path,
     [switch]$Fetch,
     [switch]$Pull,
-    [switch]$Status
+    [switch]$Status,
+    [switch]$ToShallow,
+    [switch]$GC
 )
 
 # 检查起始目录是否有效
@@ -17,7 +19,7 @@ function Update-GitRepositories {
         [Parameter(Mandatory = $true)]
         [string]$RootDir,
         [Parameter(Mandatory = $false)]
-        [ValidateSet('fetch', 'pull', 'status')]
+        [ValidateSet('fetch', 'pull', 'status', 'toshallow', 'gc')]
         [string]$Action
     )
 
@@ -65,15 +67,34 @@ function Update-GitRepositories {
                 git -C "$repo" status --untracked-files
                 Write-Host "$repo 状态获取完成" -ForegroundColor Green
             }
+            'toshallow' {
+                # 转为浅克隆（尽量只保留最近的 3 个提交），并包含子模块
+                git -C "$repo" fetch --depth 3 --recurse-submodules
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host "$repo 执行 fetch --depth 3 成功" -ForegroundColor Green
+                }
+                else {
+                    Write-Host "$repo 执行 fetch --depth 3 失败（退出码：$LASTEXITCODE）" -ForegroundColor Red
+                }
+            }
+            'gc' {
+                git -C "$repo" gc
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host "$repo 执行 gc 成功" -ForegroundColor Green
+                }
+                else {
+                    Write-Host "$repo 执行 gc 失败（退出码：$LASTEXITCODE）" -ForegroundColor Red
+                }
+            }
         }
     }
 }
 
 
 # 校验互斥参数：只允许一个动作开关
-$actionCount = @($Fetch, $Pull, $Status) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
+$actionCount = @($Fetch, $Pull, $Status, $ToShallow, $GC) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
 if ($actionCount -gt 1) {
-    Write-Error "错误：只可指定其中之一：-Fetch、-Pull 或 -Status"
+    Write-Error "错误：只可指定其中之一：-Fetch、-Pull、-Status、-ToShallow 或 -GC"
     Show-Help
     exit 1
 }
@@ -87,6 +108,8 @@ else {
     if ($Fetch) { $Action = 'fetch' }
     elseif ($Pull) { $Action = 'pull' }
     elseif ($Status) { $Action = 'status' }
+    elseif ($ToShallow) { $Action = 'toshallow' }
+    elseif ($GC) { $Action = 'gc' }
 }
 
 # 开始递归处理
